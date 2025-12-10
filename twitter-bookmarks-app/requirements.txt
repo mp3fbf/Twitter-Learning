@@ -22,3 +22,7 @@ markdown>=3.5.0  # For markdown generation
 beautifulsoup4>=4.12.0  # For parsing HTML in tweets
 lxml>=4.9.0  # For better HTML parsing
 jinja2>=3.1.2  # For template rendering
+
+# Browser Automation (for Twillot integration)
+playwright>=1.40.0  # Automated browser for rich bookmark extraction
+# After installing, run: playwright install chromium
