@@ -8,7 +8,15 @@ Transform your Twitter bookmarks into actionable knowledge using LLMs.
 - 💾 Save and load bookmarks locally
 - 📊 View bookmark statistics and topic analysis
 - 📝 Export bookmarks to Markdown
-- 🧠 **NEW: Intelligent Topic Analysis**
+- 🚀 **NEW: Twillot Integration (Rich Bookmark Data)**
+  - Automated browser scraping with Playwright + Twillot extension
+  - Complete tweet text (not truncated)
+  - Media URLs (images, videos, GIFs)
+  - Thread content
+  - Full engagement metrics
+  - No API rate limits!
+  - Import from Twillot export files (JSON/CSV)
+- 🧠 **Intelligent Topic Analysis**
   - Automatic categorization into topics (AI/ML, Programming, Tools, etc.)
   - Keyword extraction and frequency analysis
   - Knowledge graph visualization (Mermaid diagrams)
@@ -43,6 +51,9 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install required packages
 pip install -r requirements.txt
+
+# For Twillot integration (optional but recommended):
+playwright install chromium
 ```
 
 ### 2. Configure Twitter App
@@ -96,6 +107,41 @@ When you select "Smart processing", you can choose from:
 4. **Tool Comparison** - Compare similar tools and services mentioned in bookmarks
 5. **Deep Dive** - In-depth analysis of a topic with related content
 
+## Twillot Integration (Recommended)
+
+For richer bookmark data, use the Twillot integration instead of the Twitter API:
+
+### Option 1: Automated Scraping (Best)
+
+1. Install Playwright: `playwright install chromium`
+2. Download the [Twillot Chrome Extension](https://chromewebstore.google.com/detail/twillot/cedokfdbikcoefpkofjncipjjmffnknf)
+3. Extract the extension to `./extensions/twillot/`
+4. Run the app and select **"Fetch via Twillot"**
+
+The app will:
+- Open a browser with Twillot loaded
+- Let you log in to Twitter (first time only)
+- Automatically scroll and load all bookmarks
+- Extract rich data including media, threads, metrics
+
+### Option 2: Import Twillot Export
+
+1. Install Twillot extension in your browser
+2. Export bookmarks from Twillot (JSON or CSV)
+3. Run the app and select **"Import Twillot export file"**
+
+### Why Twillot vs Twitter API?
+
+| Feature | Twitter API | Twillot |
+|---------|-------------|---------|
+| Tweet text | Often truncated | Complete |
+| Media | Not included | Full URLs |
+| Threads | Not included | Complete |
+| Rate limits | 1 req/15 min | None |
+| Account risk | None | None* |
+
+*Twillot runs in your browser like normal browsing.
+
 ## LLM Configuration
 
 The app supports multiple LLM providers. You can either:
@@ -119,13 +165,16 @@ twitter-bookmarks-app/
 ├── main.py              # Main application with smart processing
 ├── twitter_auth.py      # OAuth 2.0 authentication
 ├── bookmarks_fetcher.py # Bookmark fetching and management
-├── bookmark_analyzer.py # Topic analysis and knowledge graphs 🆕
-├── link_expander.py     # URL expansion and metadata extraction 🆕
+├── bookmark_analyzer.py # Topic analysis and knowledge graphs
+├── link_expander.py     # URL expansion and metadata extraction
+├── twillot_scraper.py   # Twillot automation with Playwright 🆕
 ├── llm_providers.py     # Modular LLM providers (supports o3!)
 ├── requirements.txt     # Python dependencies
 ├── .env.example         # Example environment variables
 ├── CLAUDE.md           # Developer documentation
-└── README.md           # This file
+├── README.md           # This file
+└── extensions/          # Chrome extensions (Twillot) 🆕
+    └── twillot/         # Extracted Twillot extension
 ```
 
 ## Troubleshooting

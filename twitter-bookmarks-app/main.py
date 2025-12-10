@@ -18,6 +18,13 @@ from bookmarks_fetcher import BookmarksFetcher
 from llm_providers import LLMFactory
 from bookmark_analyzer import BookmarkAnalyzer
 
+# Optional: Twillot scraper for richer bookmark data
+try:
+    from twillot_scraper import TwillotScraper, TwillotImporter, check_playwright_installed
+    TWILLOT_AVAILABLE = True
+except ImportError:
+    TWILLOT_AVAILABLE = False
+
 load_dotenv()
 console = Console()
 
@@ -577,6 +584,117 @@ Please provide:
         
         return base_prompt
     
+    def fetch_via_twillot(self):
+        """Fetch bookmarks using Twillot automation (richer data)"""
+        if not TWILLOT_AVAILABLE:
+            console.print("[red]Twillot scraper not available![/red]")
+            console.print("Install with: [cyan]pip install playwright && playwright install chromium[/cyan]")
+            return
+
+        if not check_playwright_installed():
+            return
+
+        console.print("\n[bold cyan]Twillot Automated Bookmark Fetcher[/bold cyan]")
+        console.print("This will open a browser window with Twillot extension to fetch rich bookmark data.")
+        console.print("\n[yellow]Benefits over Twitter API:[/yellow]")
+        console.print("  - Complete tweet text (not truncated)")
+        console.print("  - Media URLs (images, videos)")
+        console.print("  - Thread content")
+        console.print("  - Full engagement metrics")
+        console.print("  - No rate limits\n")
+
+        if not Confirm.ask("Continue with Twillot scraper?"):
+            return
+
+        headless = Confirm.ask("Run in headless mode (no visible browser)?", default=False)
+
+        try:
+            scraper = TwillotScraper(headless=headless)
+            bookmarks = scraper.scrape(save_to_file=True)
+
+            if bookmarks:
+                # Convert to our standard format and merge
+                console.print(f"\n[green]Fetched {len(bookmarks)} bookmarks via Twillot![/green]")
+
+                # Update fetcher's bookmarks
+                self.fetcher.bookmarks = bookmarks
+
+                if Confirm.ask("Save to bookmarks.json?"):
+                    self.fetcher.save_bookmarks()
+
+        except Exception as e:
+            console.print(f"[red]Error during Twillot scrape: {e}[/red]")
+
+    def import_twillot_export(self):
+        """Import bookmarks from a Twillot export file"""
+        if not TWILLOT_AVAILABLE:
+            console.print("[yellow]Twillot module not loaded, using basic import...[/yellow]")
+
+        console.print("\n[bold cyan]Import Twillot Export[/bold cyan]")
+        console.print("Supported formats: JSON, CSV")
+
+        filepath = Prompt.ask("Path to Twillot export file")
+
+        if not os.path.exists(filepath):
+            console.print(f"[red]File not found: {filepath}[/red]")
+            return
+
+        try:
+            if TWILLOT_AVAILABLE:
+                if filepath.endswith('.csv'):
+                    bookmarks = TwillotImporter.import_csv(filepath)
+                else:
+                    bookmarks = TwillotImporter.import_json(filepath)
+            else:
+                # Basic JSON import fallback
+                import json
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                bookmarks = data if isinstance(data, list) else data.get('bookmarks', [])
+                console.print(f"[green]Imported {len(bookmarks)} bookmarks[/green]")
+
+            if bookmarks:
+                # Show sample
+                console.print("\n[bold]Sample imported bookmarks:[/bold]")
+                table = Table(show_header=True)
+                table.add_column("Author")
+                table.add_column("Text", max_width=50)
+                table.add_column("Likes")
+
+                for b in bookmarks[:3]:
+                    text = b.get('text', '')[:47] + '...' if len(b.get('text', '')) > 50 else b.get('text', '')
+                    likes = b.get('metrics', {}).get('like_count', b.get('likes', 0))
+                    table.add_row(
+                        f"@{b.get('author_username', 'unknown')}",
+                        text,
+                        str(likes)
+                    )
+                console.print(table)
+
+                # Merge with existing or replace
+                if self.fetcher.bookmarks:
+                    action = Prompt.ask(
+                        "Existing bookmarks found. What to do?",
+                        choices=["merge", "replace"],
+                        default="merge"
+                    )
+                    if action == "merge":
+                        existing_ids = {b.get('id') for b in self.fetcher.bookmarks}
+                        new_bookmarks = [b for b in bookmarks if b.get('id') not in existing_ids]
+                        self.fetcher.bookmarks.extend(new_bookmarks)
+                        console.print(f"[green]Added {len(new_bookmarks)} new bookmarks[/green]")
+                    else:
+                        self.fetcher.bookmarks = bookmarks
+                        console.print(f"[green]Replaced with {len(bookmarks)} bookmarks[/green]")
+                else:
+                    self.fetcher.bookmarks = bookmarks
+
+                if Confirm.ask("Save to bookmarks.json?"):
+                    self.fetcher.save_bookmarks()
+
+        except Exception as e:
+            console.print(f"[red]Error importing file: {e}[/red]")
+
     def expand_bookmark_urls(self):
         """Expand URLs in already loaded bookmarks"""
         console.print("\n[bold cyan]Expanding URLs in loaded bookmarks...[/bold cyan]")
@@ -675,62 +793,87 @@ Create a prioritized list of action items with:
             else:
                 console.print("[dim]No bookmarks loaded - use option 1 or 2 to load bookmarks[/dim]")
             
-            console.print("\n1. Fetch new bookmarks from Twitter")
-            console.print("2. Load saved bookmarks from file")
-            console.print("3. View bookmark statistics")
-            console.print("4. Export bookmarks to Markdown")
-            console.print("5. [yellow]Analyze bookmark topics[/yellow]")
-            console.print("6. [green]Smart processing (by topic)[/green]")
+            console.print("\n[bold underline]Fetch Bookmarks:[/bold underline]")
+            console.print("1. Fetch via Twitter API (limited data)")
+            console.print("2. [magenta]Fetch via Twillot (rich data, automated)[/magenta]")
+            console.print("3. [magenta]Import Twillot export file (JSON/CSV)[/magenta]")
+            console.print("4. Load saved bookmarks from file")
+
+            console.print("\n[bold underline]View & Export:[/bold underline]")
+            console.print("5. View bookmark statistics")
+            console.print("6. Export bookmarks to Markdown")
             console.print("7. [cyan]Expand URLs in loaded bookmarks[/cyan]")
-            console.print("8. Configure LLM provider")
-            console.print("9. Reset pagination (start from first bookmarks)")
-            console.print("10. Unbookmark saved tweets (free up space)")
-            console.print("11. Exit")
-            
-            choice = Prompt.ask("\nEnter your choice", choices=['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'])
+
+            console.print("\n[bold underline]Analysis:[/bold underline]")
+            console.print("8. [yellow]Analyze bookmark topics[/yellow]")
+            console.print("9. [green]Smart processing (by topic)[/green]")
+
+            console.print("\n[bold underline]Settings:[/bold underline]")
+            console.print("10. Configure LLM provider")
+            console.print("11. Reset pagination (start from first bookmarks)")
+            console.print("12. Unbookmark saved tweets (free up space)")
+            console.print("13. Exit")
+
+            choice = Prompt.ask("\nEnter your choice", choices=[str(i) for i in range(1, 14)])
             
             if choice == '1':
+                # Fetch via Twitter API
                 console.print("\n[yellow]Note: Free tier allows 1 request per 15 minutes[/yellow]")
-                # Store current bookmarks in case fetch fails
                 current_bookmarks = self.fetcher.bookmarks.copy() if self.fetcher.bookmarks else []
-                
-                # Ask about URL expansion
+
                 expand_urls = Confirm.ask("Expand URLs during fetch?", default=True)
                 new_bookmarks = self.fetcher.fetch_bookmarks(expand_links=expand_urls)
-                
+
                 if new_bookmarks:
                     if Confirm.ask("Save bookmarks to file?"):
                         self.fetcher.save_bookmarks()
                 else:
-                    # Restore previous bookmarks if fetch failed
                     if current_bookmarks:
                         self.fetcher.bookmarks = current_bookmarks
                         console.print("[dim]Previous bookmarks restored[/dim]")
-                    
+
             elif choice == '2':
-                self.fetcher.load_bookmarks()
-                
+                # Fetch via Twillot (automated)
+                self.fetch_via_twillot()
+
             elif choice == '3':
+                # Import Twillot export file
+                self.import_twillot_export()
+
+            elif choice == '4':
+                # Load saved bookmarks
+                self.fetcher.load_bookmarks()
+
+            elif choice == '5':
+                # View statistics
                 if not self.fetcher.bookmarks:
                     console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
                 else:
                     self.fetcher.get_stats()
-                
-            elif choice == '4':
+
+            elif choice == '6':
+                # Export to Markdown
                 if not self.fetcher.bookmarks:
                     console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
                 else:
                     self.fetcher.export_to_markdown()
-                
-            elif choice == '5':
-                # Analyze bookmark topics
+
+            elif choice == '7':
+                # Expand URLs
+                if not self.fetcher.bookmarks:
+                    console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
+                else:
+                    self.expand_bookmark_urls()
+
+            elif choice == '8':
+                # Analyze topics
                 if not self.fetcher.bookmarks:
                     console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
                 else:
                     self.analyze_topics()
-                    
-            elif choice == '6':
-                # Smart processing by topic
+
+            elif choice == '9':
+                # Smart processing
                 if not self.fetcher.bookmarks:
                     console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
                 elif not self.llm:
@@ -738,33 +881,30 @@ Create a prioritized list of action items with:
                     self.setup_llm()
                 if self.llm and self.fetcher.bookmarks:
                     self.smart_process_bookmarks()
-                    
-            elif choice == '7':
-                # Expand URLs in loaded bookmarks
-                if not self.fetcher.bookmarks:
-                    console.print("[yellow]No bookmarks loaded. Please fetch or load bookmarks first.[/yellow]")
-                else:
-                    self.expand_bookmark_urls()
-                    
-            elif choice == '8':
-                self.setup_llm()
-                
-            elif choice == '9':
-                self.fetcher.reset_pagination()
-                
+
             elif choice == '10':
+                # Configure LLM
+                self.setup_llm()
+
+            elif choice == '11':
+                # Reset pagination
+                self.fetcher.reset_pagination()
+
+            elif choice == '12':
+                # Unbookmark saved tweets
                 console.print("\n[bold yellow]Unbookmark Saved Tweets[/bold yellow]")
                 console.print("This will remove saved tweets from your Twitter bookmarks")
                 console.print("Rate limit: 50 unbookmarks per 15 minutes")
-                
+
                 if Confirm.ask("\nProceed with unbookmarking?"):
                     max_count = Prompt.ask("How many to unbookmark?", default="50")
                     try:
                         self.fetcher.unbookmark_saved(max_unbookmarks=int(max_count))
                     except ValueError:
                         console.print("[red]Invalid number[/red]")
-                
-            elif choice == '11':
+
+            elif choice == '13':
+                # Exit
                 console.print("[green]Goodbye![/green]")
                 break
 
