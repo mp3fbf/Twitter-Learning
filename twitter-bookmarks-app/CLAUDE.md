@@ -110,3 +110,28 @@ Required OAuth 2.0 settings in Twitter Developer Portal:
 3. Bookmarks saved to `bookmarks.json` for offline processing
 4. LLM providers process bookmarks to generate insights
 5. Results exported as Markdown or displayed in console
+
+## Twillot Integration
+
+### How it Works
+- Uses Playwright browser automation with Twillot Chrome extension
+- Extension syncs bookmarks with rich metadata (media URLs, full metrics, threads)
+- Two extraction methods:
+  1. **Twillot Export** (preferred): Downloads JSON directly from extension
+  2. **DOM Scraping** (fallback): Extracts data from rendered page
+
+### Key Files
+- `twillot_scraper.py`: Playwright automation and data extraction
+- `extensions/twillot/`: Extension files (user must provide)
+
+### Sprint 1 Fixes (Issue #2)
+
+**Download Capture Fix** (`twillot_scraper.py`):
+- Problem: `_export_via_twillot()` clicked export buttons but never captured the download
+- Solution: Implemented `page.expect_download()` context manager to capture and save the file
+- The export file is now properly saved to `exports/` directory
+
+**Null-Safety Checks** (`main.py`):
+- Problem: `fetch_via_twillot()` and `import_twillot_export()` accessed `self.fetcher` without null checks
+- Solution: Added early return with error message if fetcher is not initialized
+- Users now see a clear message: "Error: Fetcher not initialized. Run authentication first."

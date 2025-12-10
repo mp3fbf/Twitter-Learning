@@ -73,7 +73,7 @@ class TwillotBookmark:
 class TwillotExtensionManager:
     """Manages Twillot Chrome extension setup"""
 
-    EXTENSION_ID = "cedokfdbikcoefpkofjncipjjmffnknf"  # Twillot Chrome Web Store ID
+    EXTENSION_ID = "flkokionhgagpmnhlngldhbfnblmenen"  # Twillot Chrome Web Store ID
     EXTENSION_URL = f"https://clients2.google.com/service/update2/crx?response=redirect&prodversion=120.0.0.0&x=id%3D{EXTENSION_ID}%26installsource%3Dondemand%26uc"
 
     def __init__(self, extensions_dir: str = "./extensions"):
@@ -311,11 +311,7 @@ class TwillotScraper:
         console.print("[cyan]Exporting via Twillot...[/cyan]")
 
         try:
-            # Navigate to export section
-            # This depends on Twillot's UI structure
-            # Look for export button or link
-
-            # Try common selectors
+            # Try common selectors for export button
             export_selectors = [
                 'text="Export"',
                 'button:has-text("Export")',
@@ -323,36 +319,57 @@ class TwillotScraper:
                 '[data-action="export"]',
             ]
 
+            export_clicked = False
             for selector in export_selectors:
                 try:
                     popup_page.click(selector, timeout=3000)
+                    export_clicked = True
+                    console.print(f"[dim]Clicked export button: {selector}[/dim]")
                     break
-                except:
+                except Exception:
                     continue
 
-            time.sleep(2)
+            if not export_clicked:
+                console.print("[yellow]Could not find export button[/yellow]")
+                return None
 
-            # Look for JSON export option
+            time.sleep(1)
+
+            # JSON export selectors
             json_selectors = [
                 'text="JSON"',
                 'button:has-text("JSON")',
                 '[data-format="json"]',
             ]
 
-            for selector in json_selectors:
-                try:
-                    popup_page.click(selector, timeout=3000)
-                    break
-                except:
-                    continue
-
-            # Wait for download
-            time.sleep(3)
-
-            # Return path to downloaded file
+            # Capture download when clicking JSON export
             export_path = self.export_dir / f"twillot_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
-            return str(export_path)
+            try:
+                with popup_page.expect_download(timeout=30000) as download_info:
+                    json_clicked = False
+                    for selector in json_selectors:
+                        try:
+                            popup_page.click(selector, timeout=3000)
+                            json_clicked = True
+                            console.print(f"[dim]Clicked JSON export: {selector}[/dim]")
+                            break
+                        except Exception:
+                            continue
+
+                    if not json_clicked:
+                        console.print("[yellow]Could not find JSON export button[/yellow]")
+                        return None
+
+                # Save downloaded file to our export directory
+                download = download_info.value
+                download.save_as(export_path)
+                console.print(f"[green]Export saved to: {export_path}[/green]")
+                return str(export_path)
+
+            except Exception as e:
+                console.print(f"[yellow]Download capture failed: {e}[/yellow]")
+                return None
 
         except Exception as e:
             console.print(f"[red]Error during export: {e}[/red]")

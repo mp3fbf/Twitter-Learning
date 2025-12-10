@@ -594,6 +594,10 @@ Please provide:
         if not check_playwright_installed():
             return
 
+        if not self.fetcher:
+            console.print("[red]Error: Fetcher not initialized. Run authentication first.[/red]")
+            return
+
         console.print("\n[bold cyan]Twillot Automated Bookmark Fetcher[/bold cyan]")
         console.print("This will open a browser window with Twillot extension to fetch rich bookmark data.")
         console.print("\n[yellow]Benefits over Twitter API:[/yellow]")
@@ -627,6 +631,10 @@ Please provide:
 
     def import_twillot_export(self):
         """Import bookmarks from a Twillot export file"""
+        if not self.fetcher:
+            console.print("[red]Error: Fetcher not initialized. Run authentication first.[/red]")
+            return
+
         if not TWILLOT_AVAILABLE:
             console.print("[yellow]Twillot module not loaded, using basic import...[/yellow]")
 
